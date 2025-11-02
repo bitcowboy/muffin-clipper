@@ -9,12 +9,23 @@ export const remove_html = (html: string, params: string = ''): string => {
 	// Remove any surrounding quotes (both single and double) and unescape internal quotes
 	params = params.replace(/^(['"])(.*)\1$/, '$2').replace(/\\(['"])/g, '$1');
 
+	// Check for exact match mode flag (backward compatible: default is prefix match)
+	let matchMode: 'prefix' | 'exact' = 'prefix';
+	let selectorsString = params;
+	
+	// Check for :exact suffix
+	const exactMatchRegex = /:exact$/i;
+	if (exactMatchRegex.test(params)) {
+		matchMode = 'exact';
+		selectorsString = params.replace(exactMatchRegex, '').trim();
+	}
+
 	// Split by comma, but respect both single and double quoted strings
-	const elementsToRemove = params.split(/,(?=(?:(?:[^"']*["'][^"']*["'])*[^"']*$))/)
+	const elementsToRemove = selectorsString.split(/,(?=(?:(?:[^"']*["'][^"']*["'])*[^"']*$))/)
 		.map(elem => elem.trim())
 		.filter(Boolean);
 
-	debugLog('RemoveHTML', 'Elements to remove:', elementsToRemove);
+	debugLog('RemoveHTML', 'Elements to remove:', elementsToRemove, 'Match mode:', matchMode);
 
 	// If no elements specified, return the original HTML
 	if (elementsToRemove.length === 0) {
@@ -27,10 +38,17 @@ export const remove_html = (html: string, params: string = ''): string => {
 	elementsToRemove.forEach(elem => {
 		let elements: NodeListOf<Element> | HTMLCollectionOf<Element>;
 		if (elem.startsWith('.')) {
-			// Class selector
-			elements = doc.querySelectorAll(`[class*="${elem.slice(1)}"]`);
+			// Class selector - use match mode
+			const className = elem.slice(1);
+			if (matchMode === 'exact') {
+				// Exact match: match complete word in space-separated class list
+				elements = doc.querySelectorAll(`[class~="${className}"]`);
+			} else {
+				// Prefix match: match substring (backward compatible default)
+				elements = doc.querySelectorAll(`[class*="${className}"]`);
+			}
 		} else if (elem.startsWith('#')) {
-			// ID selector
+			// ID selector - always exact match
 			elements = doc.querySelectorAll(`[id="${elem.slice(1)}"]`);
 		} else {
 			// Tag selector

@@ -228,6 +228,11 @@ Removes only the specified HTML attributes from tags.
 Removes the specified HTML elements and their content from a string.
 
 - Supports tag name, class, or id, e.g. `{{contentHtml|remove_html:("img,.class-name,#element-id")}}`
+- **Class matching modes:**
+  - Default (prefix match): Class selectors match if the class name contains the specified string, e.g. `.footer` matches `footer`, `page-footer`, `footer-section`. This is backward compatible with existing templates.
+    - Example: `{{contentHtml|remove_html:("#navbar,.footer")}}`
+  - Exact match: Add `:exact` at the end of the parameter string to match only complete class names in space-separated class lists, e.g. `.footer` matches `footer` and `nav footer` but not `page-footer`.
+    - Example: `{{contentHtml|remove_html:("#navbar,.footer:exact")}}`
 - To remove only HTML tags or attributes without removing the content use the `strip_tags` or `strip_attr` filters.
 
 ### `remove_tags` 
