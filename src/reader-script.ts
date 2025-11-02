@@ -26,5 +26,6 @@ import browser from './utils/browser-polyfill';
 			})();
 			return true;
 		}
+		return true;
 	});
 })(); 

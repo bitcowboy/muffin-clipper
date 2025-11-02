@@ -171,6 +171,64 @@ declare global {
 		metaTags: { name?: string | null; property?: string | null; content: string | null }[];
 	}
 
+	/**
+	 * Process lazy-loaded images by converting data-src attributes to src
+	 * Only converts URLs, does not wait for images to load
+	 */
+	function processLazyLoadedImages(doc: Document): void {
+		const images = Array.from(doc.querySelectorAll('img')) as HTMLImageElement[];
+		
+		images.forEach(img => {
+			// Common lazy loading attributes
+			const lazyAttrs = ['data-src', 'data-lazy-src', 'data-original', 'data-lazy'];
+			let realSrc: string | null = null;
+			
+			// Find the real image URL
+			for (const attr of lazyAttrs) {
+				const value = img.getAttribute(attr);
+				if (value && value.trim()) {
+					realSrc = value;
+					break;
+				}
+			}
+			
+			// If found lazy loading URL, set it to src
+			if (realSrc) {
+				// Handle relative URLs
+				try {
+					const baseUrl = doc.baseURI || document.baseURI || document.URL;
+					const absoluteUrl = new URL(realSrc, baseUrl).href;
+					img.src = absoluteUrl;
+				} catch (e) {
+					// If URL parsing fails, use the value as-is
+					img.src = realSrc;
+				}
+				
+				// Handle lazy-loaded srcset
+				const lazySrcset = img.getAttribute('data-srcset');
+				if (lazySrcset) {
+					// Convert relative URLs in srcset to absolute URLs
+					try {
+						const baseUrl = doc.baseURI || document.baseURI || document.URL;
+						const processedSrcset = lazySrcset.split(',').map(src => {
+							const [url, size] = src.trim().split(' ');
+							try {
+								const absoluteUrl = new URL(url, baseUrl).href;
+								return `${absoluteUrl}${size ? ' ' + size : ''}`;
+							} catch (e) {
+								return src;
+							}
+						}).join(', ');
+						img.srcset = processedSrcset;
+					} catch (e) {
+						// If processing fails, use the original value
+						img.srcset = lazySrcset;
+					}
+				}
+			}
+		});
+	}
+
 	browser.runtime.onMessage.addListener((request: any, sender, sendResponse) => {
 		if (request.action === "ping") {
 			sendResponse({});
@@ -189,7 +247,7 @@ declare global {
 			if (existingContainer) {
 				removeContainer(existingContainer);
 			}
-			return;
+			return true;
 		}
 
 		if (request.action === "copy-text-to-clipboard") {
@@ -208,6 +266,8 @@ declare global {
 		}
 
 		if (request.action === "getPageContent") {
+			processLazyLoadedImages(document);
+
 			let selectedHtml = '';
 			const selection = window.getSelection();
 			
